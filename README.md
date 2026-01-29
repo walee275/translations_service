@@ -1,59 +1,180 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+🚀 Features
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+REST API for translations with:
 
-## About Laravel
+Key prefix search
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Locale filtering
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Tag-based filtering
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Combined filters
 
-## Learning Laravel
+Cursor-based pagination for fast large-dataset access
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+CSV & JSON export (streamed, memory-safe)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Optimized SQL queries with proper indexing
 
-## Laravel Sponsors
+Response caching for frequently accessed queries
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Fully tested with ~95% code coverage
 
-### Premium Partners
+SQLite-based test environment (safe & fast)
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+🛠 Tech Stack
 
-## Contributing
+Laravel 11
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+PHP 8.2
 
-## Code of Conduct
+MySQL (production)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+SQLite (in-memory) for testing
 
-## Security Vulnerabilities
+PHPUnit for testing
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+📦 Setup Instructions
 
-## License
+1️⃣ Clone the repository
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+git clone 
+cd translation_service
+
+2️⃣ Install dependencies
+composer install
+
+3️⃣ Environment setup
+
+Copy the environment file:
+
+cp .env.example .env
+
+
+Update database credentials in .env:
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=translation_service
+DB_USERNAME=root
+DB_PASSWORD=
+
+
+Generate app key:
+
+php artisan key:generate
+
+4️⃣ Run migrations & seeders
+php artisan migrate
+php artisan db:seed
+php artisan translations:seed
+
+
+Seeders generate sample locales, tags, and translations.
+
+5️⃣ Start the application
+php artisan serve
+
+
+API will be available at:
+
+http://localhost:8000/api
+
+🔑 Authentication
+
+All API endpoints are protected.
+
+Use Laravel Sanctum token authentication.
+
+Example:
+
+Authorization: Bearer <token>
+
+📡 API Endpoints
+Get Translations
+GET /api/translations
+
+
+Query parameters:
+
+q – key prefix search
+
+locale – locale code (e.g. en)
+
+tags – comma-separated tag names
+
+per_page – items per page (cursor pagination)
+
+Export Translations
+GET /api/translations/export
+
+
+Query parameters:
+
+format – csv or json
+
+q, locale, tags – same as index endpoint
+
+CSV exports are streamed to keep memory usage low.
+
+🧪 Testing
+Run the full test suite
+php artisan test
+
+Code coverage (requires Xdebug or PCOV)
+php artisan test --coverage
+
+
+Or generate an HTML report:
+
+php artisan test --coverage-html=coverage
+open coverage/index.html
+
+
+Tests run against an in-memory SQLite database, ensuring the real database is never modified.
+
+⚙️ Performance & Design Choices
+Cursor Pagination
+
+Used instead of offset pagination for better performance on large datasets
+
+Reduces query cost and avoids slow offsets
+
+Query Optimization
+
+Explicit JOINs instead of heavy Eloquent relationships in read paths
+
+Proper composite indexes added for:
+
+(key, locale_id)
+
+tag pivot lookups
+
+Avoids N+1 queries
+
+Streaming CSV Export
+
+Uses StreamedResponse + chunkById
+
+Safe for large exports without memory spikes
+
+Caching
+
+Cached translation list responses using request-based cache keys
+
+Short TTL to balance freshness and performance
+
+Testing Strategy
+
+Feature tests cover:
+
+Authentication
+
+Filtering logic
+
+Pagination
+
+Export formats
+
+SQLite enforces stricter constraints, catching edge cases early
