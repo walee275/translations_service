@@ -66,9 +66,13 @@ Generate app key:
 php artisan key:generate
 
 4️⃣ Run migrations & seeders
+
 php artisan migrate
+
 php artisan db:seed
+
 php artisan translations:seed
+
 
 
 Seeders generate sample locales, tags, and translations.
