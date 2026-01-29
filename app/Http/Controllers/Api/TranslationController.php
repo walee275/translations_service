@@ -65,16 +65,14 @@ class TranslationController extends Controller
 
     public function export(Request $request)
     {
-
         $format = $request->get('format', 'csv');
-        $limit  = (int) $request->get('limit', 1000);
+        $limit = (int) $request->get('limit', 500);
 
         $query = Translation::query()
             ->select([
-                'translations.id',
+                'translations.id as translation_id',
                 'translations.key',
                 'translations.content',
-                'translations.locale_id',
                 'locales.code as locale',
             ])
             ->join('locales', 'locales.id', '=', 'translations.locale_id');
@@ -91,74 +89,41 @@ class TranslationController extends Controller
 
         // Filter by tags
         if ($request->filled('tags')) {
-            $tagNames = explode(',', $request->tags);
-            $query->whereExists(function ($subQuery) use ($tagNames) {
-                $subQuery->select(DB::raw(1))
-                    ->from('translation_tag')
-                    ->join('tags', 'tags.id', '=', 'translation_tag.tag_id')
-                    ->whereColumn('translation_tag.translation_id', 'translations.id')
-                    ->whereIn('tags.name', $tagNames);
-            });
-        }
+            $tags = explode(',', $request->tags);
 
-        $query->orderBy('translations.id');
-
-        if ($format === 'json') {
-            $results = $query->cursorPaginate($limit);
-
-
-            $translationIds = $results->pluck('id');
-
-            $tagsMap = DB::table('translation_tag')
+            $query
+                ->join('translation_tag', 'translation_tag.translation_id', '=', 'translations.id')
                 ->join('tags', 'tags.id', '=', 'translation_tag.tag_id')
-                ->whereIn('translation_tag.translation_id', $translationIds)
-                ->select('translation_tag.translation_id', 'tags.name')
-                ->get()
-                ->groupBy('translation_id')
-                ->map(function ($tags) {
-                    return $tags->pluck('name')->implode('|');
-                });
-
-            // Attach tags
-            $results->getCollection()->transform(function ($item) use ($tagsMap) {
-                $item->tags = $tagsMap->get($item->id, '');
-                return $item;
-            });
-
-            return response()->json($results);
+                ->whereIn('tags.name', $tags)
+                ->distinct();
         }
 
-        // ----------------
-        // CSV STREAMING
-        // ----------------
+        // JSON export
+        if ($format === 'json') {
+            return response()->json(
+                $query->limit($limit)->get()
+            );
+        }
+
+        // CSV export
         return new StreamedResponse(function () use ($query) {
             $handle = fopen('php://output', 'w');
+
             fputcsv($handle, ['key', 'locale', 'content', 'tags']);
 
-            // Cache tags lookup
-            $tagsCache = [];
+            $query->orderBy('translations.id')
+                ->chunkById(500, function ($rows) use ($handle) {
+                    $rows->load('tags:name');
 
-            $query->chunkById(500, function ($rows) use ($handle, &$tagsCache) {
-                $ids = $rows->pluck('id');
-
-                // Bulk load tags for this chunk
-                $chunkTags = DB::table('translation_tag')
-                    ->join('tags', 'tags.id', '=', 'translation_tag.tag_id')
-                    ->whereIn('translation_tag.translation_id', $ids)
-                    ->select('translation_tag.translation_id', 'tags.name')
-                    ->get()
-                    ->groupBy('translation_id')
-                    ->map(fn($tags) => $tags->pluck('name')->implode('|'));
-
-                foreach ($rows as $row) {
-                    fputcsv($handle, [
-                        $row->key,
-                        $row->locale,
-                        $row->content,
-                        $chunkTags->get($row->id, ''),
-                    ]);
-                }
-            }, 'translations.id');
+                    foreach ($rows as $t) {
+                        fputcsv($handle, [
+                            $t->key,
+                            $t->locale,
+                            $t->content,
+                            $t->tags->pluck('name')->implode('|'),
+                        ]);
+                    }
+                }, 'translation_id');
 
             fclose($handle);
         }, 200, [
